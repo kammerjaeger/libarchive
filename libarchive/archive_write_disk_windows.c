@@ -351,17 +351,31 @@ file_information(struct archive_write_disk *a, wchar_t *path,
 	return (0);
 }
 
+/*
+ * Sets the working directory for all the file operations
+ */
 int archive_write_disk_set_working_directory(struct archive *_a, const wchar_t *working_dir){
     struct archive_write_disk *a = (struct archive_write_disk *) _a;
     free (a->working_dir);
     if (working_dir != NULL){
-        int l = wcslen(working_dir) + 1;
-        a->working_dir = (wchar_t*) malloc(l * sizeof(wchar_t));
-        wcscpy(a->working_dir, working_dir);
+        wchar_t *tmp;
+        unsigned int len;        
+
+        tmp = _wcsdup(working_dir);
+        if (tmp == NULL){
+            return (-1);
+        }
+                
+        len = wcslen(tmp) - 1;
+        // test for \ or / at the end of the string and remove it
+        if (tmp[len] == '\\' || tmp[len] == '/'){
+            tmp[len] = 0;
+        }
+        a->working_dir = tmp;
     } else {
         a->working_dir = NULL;
     }
-    return (ARCHIVE_OK);
+    return (0);
 }
 
 /* 
@@ -476,31 +490,31 @@ permissive_name_w(struct archive_write_disk *a)
 		if (wn == NULL)
 			return (-1);
 		archive_wstring_ensure(&(a->_name_data),
-			4 + 2 + wcslen(wn) + 1);
+		    2 + wcslen(wn) + 1);
 		a->name = a->_name_data.s;
-		/* Prepend "\\?\" and drive name. */
-		archive_wstrncpy(&(a->_name_data), L"\\\\?\\", 4);
-		archive_wstrncat(&(a->_name_data), wsp, 2);
+        /* Prepend drive name. */
+		archive_wstrncpy(&(a->_name_data), wsp, 2);
 		archive_wstrcat(&(a->_name_data), wn);
 		free(wsp);
 		free(wn);
-		return (0);
+        /* Prepend "\\?\" */
+		return permissive_name_w(a);
 	}
 
 	wn = _wcsdup(wnp);
 	if (wn == NULL)
 		return (-1);
-	archive_wstring_ensure(&(a->_name_data), 4 + l + 1 + wcslen(wn) + 1);
+	archive_wstring_ensure(&(a->_name_data), l + 1 + wcslen(wn) + 1);
 	a->name = a->_name_data.s;
-	/* Prepend "\\?\" and drive name. */
-	archive_wstrncpy(&(a->_name_data), L"\\\\?\\", 4);
-	archive_wstrncat(&(a->_name_data), wsp, l);
+	/* Prepend drive name. */
+	archive_wstrncpy(&(a->_name_data), wsp, l);
 	archive_wstrncat(&(a->_name_data), L"\\", 1);
 	archive_wstrcat(&(a->_name_data), wn);
 	a->name = a->_name_data.s;
 	free(wsp);
 	free(wn);
-	return (0);
+    /* Prepend "\\?\" */
+	return permissive_name_w(a);
 }
 
 static int
