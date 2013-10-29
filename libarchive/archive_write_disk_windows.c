@@ -188,6 +188,9 @@ struct archive_write_disk {
 	/* UID/GID to use in restoring this entry. */
 	int64_t			 uid;
 	int64_t			 gid;
+
+    /* current working directory */
+    wchar_t *working_dir;
 };
 
 /*
@@ -348,6 +351,19 @@ file_information(struct archive_write_disk *a, wchar_t *path,
 	return (0);
 }
 
+int archive_write_disk_set_working_directory(struct archive *_a, const wchar_t *working_dir){
+    struct archive_write_disk *a = (struct archive_write_disk *) _a;
+    free (a->working_dir);
+    if (working_dir != NULL){
+        int l = wcslen(working_dir) + 1;
+        a->working_dir = (wchar_t*) malloc(l * sizeof(wchar_t));
+        wcscpy(a->working_dir, working_dir);
+    } else {
+        a->working_dir = NULL;
+    }
+    return (ARCHIVE_OK);
+}
+
 /* 
  * Note: The path, for example, "aa/a/../b../c" will be converted to "aa/c"
  * by GetFullPathNameW() W32 API, which __la_win_permissive_name_w uses.
@@ -435,16 +451,22 @@ permissive_name_w(struct archive_write_disk *a)
 	/*
 	 * Get current working directory.
 	 */
-	l = GetCurrentDirectoryW(0, NULL);
-	if (l == 0)
-		return (-1);
-	ws = malloc(l * sizeof(wchar_t));
-	l = GetCurrentDirectoryW(l, ws);
-	if (l == 0) {
-		free(ws);
-		return (-1);
-	}
-	wsp = ws;
+    if (a->working_dir == NULL){
+	    l = GetCurrentDirectoryW(0, NULL);
+	    if (l == 0)
+		    return (-1);
+	    ws = (wchar_t *) malloc(l * sizeof(wchar_t));
+	    l = GetCurrentDirectoryW(l, ws);
+	    if (l == 0) {
+		    free(ws);
+		    return (-1);
+	    }
+	    wsp = ws;
+    } else {
+        l = wcslen(a->working_dir) + 1;
+        wsp = (wchar_t*) malloc(l * sizeof(wchar_t));
+        wcscpy(wsp, a->working_dir);
+    }
 
 	/*
 	 * A full-pathname starting without a drive name like "\abc".
@@ -1677,6 +1699,7 @@ _archive_write_disk_free(struct archive *_a)
 	archive_wstring_free(&a->path_safe);
 	a->archive.magic = 0;
 	__archive_clean(&a->archive);
+    free(a->working_dir);
 	free(a);
 	return (ret);
 }

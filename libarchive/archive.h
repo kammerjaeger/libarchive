@@ -758,6 +758,8 @@ __LA_DECL int archive_write_set_options(struct archive *_a,
  * to pull entries out of an archive and create them on disk.
  */
 __LA_DECL struct archive	*archive_write_disk_new(void);
+/* Set the working directory instead of getting it from the OS, setting it to NULL will use the OS again*/
+__LA_DECL int archive_write_disk_set_working_directory(struct archive * _a, const wchar_t *working_dir);
 /* This file will not be overwritten. */
 __LA_DECL int archive_write_disk_set_skip_file(struct archive *,
     __LA_INT64_T, __LA_INT64_T);
